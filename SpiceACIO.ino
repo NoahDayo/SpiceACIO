@@ -9,40 +9,36 @@
 #include "PN5180FeliCa.h"
 #include "PN5180ISO15693.h"
 
-//pin config
+//CardReader
 #define PN5180_NSS 48
 #define PN5180_BUSY 49
 #define PN5180_RST 53
 
 //LED
 #include <FastLED.h>
-#define REDPIN   5
-#define GREENPIN 6
-#define BLUEPIN  7
+#define REDPIN   11
+#define GREENPIN 12
+#define BLUEPIN  13
 
 //spiceapi con
 spiceapi::Connection CON(4096, "");
 void setup() {
-  SPICEAPI_INTERFACE.begin(2000000);
+  SPICEAPI_INTERFACE.begin(115200);
+  while (!SPICEAPI_INTERFACE);
   //2nd ttl for debug
-  SPICEDEBUG_INTERFACE.begin(115200);
+  SPICEDEBUG_INTERFACE.begin(9600);
 
   pinMode(REDPIN,   OUTPUT);
   pinMode(GREENPIN, OUTPUT);
   pinMode(BLUEPIN,  OUTPUT);
-
-  //default lights
-  analogWrite(REDPIN, 0);
-  analogWrite(GREENPIN, 0);
-  analogWrite(BLUEPIN, 0);
 }
 
 void loop() {
   RgbLeds();
-  CardReader();
-  Headphones();
+  //CardReader();
+  //Headphones();
 
-  delay(50);
+  //delay(20);
 }
 void ttldebug() {
   int temp = SPICEAPI_INTERFACE.read();
@@ -51,24 +47,28 @@ void ttldebug() {
 
 void RgbLeds() {
   int r = 0, g = 0, b = 0;
-  spiceapi::LightState lights[35];
-  int lights_size = spiceapi::lights_read(CON, lights, 35);
-  for (int i = 0; i < lights_size; i++) {
-    auto &light = lights[i];
-    if (light.name.equals("Wing Left Up R"))
-    {
-      r = (int) 255 - 255 * light.value;
+
+  //req the light state
+  auto req = "{\"id\":"+String(spiceapi::msg_gen_id())+",\"module\":\"lights\",\"function\":\"read\",\"params\":[]}"
+  auto res = CON.request(req);
+  delete req;
+  //parse the string to object
+  DynamicJsonDocument *obj = new DynamicJsonDocument(2048);
+  deserializeJson(*obj, res);
+  SPICEDEBUG_INTERFACE.println(spiceapi::doc2str(obj));
+  auto data = (*obj)["data"].as<JsonArray>();
+  int count = 0;
+  for (auto val : data) {
+    if (val[0] == "Wing Left Up R") {
+      r = (int) (255 - 254 * val[1].as<float>());
+    } else if (val[0] == "Wing Left Up G") {
+      g = (int) (255 - 254 * val[1].as<float>());
+    } else if (val[0] == "Wing Left Up B") {
+      b = (int) (255 - 254 * val[1].as<float>());
     }
-    else if (light.name.equals("Wing Left Up G"))
-    {
-      g = (int) 255 - 255 * light.value;
-    }
-    else if (light.name.equals("Wing Left Up B"))
-    {
-      b = (int) 255 - 255 * light.value;
-    }
+    count++;
   }
-  SPICEDEBUG_INTERFACE.println(lights_size);
+  SPICEDEBUG_INTERFACE.println(count);
 
   analogWrite(REDPIN, r);
   analogWrite(GREENPIN, g);
@@ -78,11 +78,7 @@ void RgbLeds() {
 
 
 void Headphones() {
-  spiceapi::ButtonState buttons[1];
-  buttons[0].name = "Headphone";
-  buttons[0].value = 1.0;
-
-  spiceapi::buttons_write(CON, buttons, 1);
+  CON.request("{\"id\":3,\"module\":\"buttons\",\"function\":\"write\",\"params\":[[\"Headphone\",1.0]]}");
 }
 
 void KeyPads() {
@@ -132,8 +128,12 @@ void CardReader() {
             for (int i = 0; i < 16; i++) {
               num += hex_str[i];
             }
-            //SPICEAPI_INTERFACE.println(num);
-            spiceapi::card_insert(CON, 0, num.c_str());//job done
+            SPICEDEBUG_INTERFACE.println(num);
+            String req = "{\"id\":2,\"module\":\"card\",\"function\":\"insert\",\"params\":[[0,\"" + num + "\"]]}";
+            CON.request(req.c_str());
+            //spiceapi::card_insert(CON, 0, num.c_str());//job done
+
+
             readstatus = 0;
           }
           else //tag found but bad ID
@@ -175,8 +175,10 @@ void CardReader() {
           for (int i = 0; i < 16; i++) {
             num += hex_str[i];
           }
-          //SPICEAPI_INTERFACE.println(num);
-          spiceapi::card_insert(CON, 0, num.c_str());
+          SPICEDEBUG_INTERFACE.println(num);
+          String req = "{\"id\":2,\"module\":\"card\",\"function\":\"insert\",\"params\":[[0,\"" + num + "\"]]}";
+          CON.request(req.c_str());
+          //spiceapi::card_insert(CON, 0, num.c_str());
           //job done
 
           readstatus = 0;
