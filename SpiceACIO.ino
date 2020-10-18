@@ -34,9 +34,9 @@ void setup() {
 }
 
 void loop() {
-  RgbLeds();
-  //CardReader();
-  //Headphones();
+  //RgbLeds();
+  CardReader();
+  Headphones();
 
   //delay(20);
 }
@@ -49,7 +49,7 @@ void RgbLeds() {
   int r = 0, g = 0, b = 0;
 
   //req the light state
-  auto req = "{\"id\":"+String(spiceapi::msg_gen_id())+",\"module\":\"lights\",\"function\":\"read\",\"params\":[]}"
+  /*String req = "{\"id\":"+String((int)spiceapi::msg_gen_id())+",\"module\":\"lights\",\"function\":\"read\",\"params\":[]}";
   auto res = CON.request(req);
   delete req;
   //parse the string to object
@@ -72,7 +72,7 @@ void RgbLeds() {
 
   analogWrite(REDPIN, r);
   analogWrite(GREENPIN, g);
-  analogWrite(BLUEPIN, b);
+  analogWrite(BLUEPIN, b);*/
 }
 
 
